@@ -1,4 +1,4 @@
-"""A web framework built atop on python's http.server"""
+"""A micro service tool built atop on python's http.server"""
 
 from __future__ import annotations
 
@@ -96,17 +96,17 @@ class Request:
         )
 
 
-class Inara(BaseHTTPRequestHandler):
+class Mikro(BaseHTTPRequestHandler):
     """Dispatch HTTP requests to registered services"""
 
-    _services: Dict[str, Callable[..., Response]] = {}
+    _services: Dict[str, Callable[[...], Response]] = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
 
     @classmethod
-    def register(cls, path, *args, **kwargs):
+    def service(cls, path, *args, **kwargs):
         def wrapper(func):
             cls._services[path] = func
             func._extras = args
@@ -130,16 +130,10 @@ class Inara(BaseHTTPRequestHandler):
             response = Response(HTTPStatus.NOT_FOUND, f"No handler found for {path}")
 
 
-@Inara.register("/random")
-def random_number(*args):
-    print(args)
-    return Response(HTTPStatus.OK, "5")
-
-
 def serve(
     host="0.0.0.0", port=7676, level_logging=logging.DEBUG, level_handler=logging.DEBUG
 ):
-    with socketserver.TCPServer((host, port), Inara) as httpd:
+    with socketserver.TCPServer((host, port), Mikro) as httpd:
         logger = logging.getLogger(__name__)
         logger.setLevel(level_logging)
 
@@ -147,7 +141,7 @@ def serve(
         handler.setLevel(level_handler)
 
         formatter = logging.Formatter(
-            "[INARA] %(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "[MIKRO] %(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
@@ -156,22 +150,25 @@ def serve(
         httpd.serve_forever()
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="InaraCTL - Run/Manage Inara applications"
-    )
+def main():
+    parser = argparse.ArgumentParser(description="MikroCTL - Run/Manage mikro services")
 
-    parser.add_argument("-H", "--host", help="Server host", default="0.0.0.0")
+    parser.add_argument("-H", "--host", help="Server host", default="0.0.0.0", type=str)
     parser.add_argument("-P", "--port", help="Server port", default=7676, type=int)
     parser.add_argument(
-        "-Ll", "--level-logging", help="Logging level", default=logging.DEBUG
+        "-Ll", "--level-logging", help="Logging level", default=logging.DEBUG, type=int
     )
     parser.add_argument(
         "-Lh",
         "--level-handler",
         help="Standard out handler level",
         default=logging.DEBUG,
+        type=int,
     )
 
     args = parser.parse_args()
     serve(**vars(args))
+
+
+if __name__ == "__main__":
+    main()
